@@ -3,8 +3,13 @@
   if (window.ogameScanRunning) return;
   window.ogameScanRunning = true;
 
-  const targetPlayer = prompt("Podaj nazwę gracza do wyszukania:")?.trim();
-  if (!targetPlayer) return;
+  let targetPlayer = localStorage.getItem("ogameScanTarget");
+  if (!targetPlayer) {
+    targetPlayer = prompt("Podaj nazwę gracza do wyszukania:")?.trim();
+    if (!targetPlayer) return;
+    localStorage.setItem("ogameScanTarget", targetPlayer);
+  }
+
   const base = "https://s263-pl.ogame.gameforge.com";
   const panel = document.createElement("div");
   panel.id = "ogame-scan-panel";
