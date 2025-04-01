@@ -1,7 +1,7 @@
 <!-- Panel skanera gracza OGame - trwały i odporny na zmiany zakładek -->
 <div id="ogame-scan-panel" style="position:fixed;top:100px;right:20px;width:300px;background:#111;color:#eee;padding:10px;border:2px solid #555;border-radius:10px;z-index:99999;font-family:sans-serif;font-size:14px;box-shadow:0 0 10px #000;">
   <div style="font-weight:bold;margin-bottom:5px;">🔎 OGame Skaner Gracza</div>
-  <div>Gracz: <input id="ogame-scan-input" type="text" placeholder="Wpisz gracza" style="width:100%;margin-top:5px;margin-bottom:5px;background:#222;color:#eee;border:none;padding:5px;border-radius:5px;"></div>
+  <div>Gracz: <input id="ogame-scan-input" type="text" placeholder="Wpisz gracza" style="width:100%;margin-top:5px;margin-bottom:5px;background:#fff;color:#000;border:none;padding:5px;border-radius:5px;z-index:100000;"></div>
   <div>Postęp: <span id="ogame-scan-progress">0%</span></div>
   <div>Znaleziono: <span id="ogame-scan-found">0</span></div>
   <div id="ogame-scan-results" style="max-height:150px;overflow:auto;margin-top:5px;font-family:monospace;background:#222;padding:5px;border-radius:5px;"></div>
@@ -21,6 +21,7 @@
   const foundCounter = document.getElementById("ogame-scan-found");
   const progressBar = document.getElementById("ogame-scan-progress");
 
+  input.value = localStorage.getItem("ogameScanLastTarget") || "";
   let stopped = false;
 
   stopBtn.onclick = () => {
