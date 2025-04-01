@@ -1,7 +1,7 @@
-<!-- Panel skanera gracza OGame - trwały i odporny na zmiany zakładek -->
+<!-- Panel skanera gracza OGame - trwały i prosty do użycia z bookmarkleta -->
 <div id="ogame-scan-panel" style="position:fixed;top:100px;right:20px;width:300px;background:#111;color:#eee;padding:10px;border:2px solid #555;border-radius:10px;z-index:99999;font-family:sans-serif;font-size:14px;box-shadow:0 0 10px #000;">
   <div style="font-weight:bold;margin-bottom:5px;">🔎 OGame Skaner Gracza</div>
-  <div>Gracz: <input id="ogame-scan-input" type="text" placeholder="Wpisz gracza" style="width:100%;margin-top:5px;margin-bottom:5px;background:#fff;color:#000;border:none;padding:5px;border-radius:5px;z-index:100000;"></div>
+  <div>Gracz: <input id="ogame-scan-input" type="text" placeholder="Wpisz gracza" style="width:100%;margin-top:5px;margin-bottom:5px;background:#fff;color:#000;border:none;padding:5px;border-radius:5px;"></div>
   <div>Postęp: <span id="ogame-scan-progress">0%</span></div>
   <div>Znaleziono: <span id="ogame-scan-found">0</span></div>
   <div id="ogame-scan-results" style="max-height:150px;overflow:auto;margin-top:5px;font-family:monospace;background:#222;padding:5px;border-radius:5px;"></div>
@@ -9,11 +9,8 @@
   <button id="ogame-scan-stop" style="margin-top:5px;width:100%;background:#c00;color:#fff;border:none;padding:5px;border-radius:5px;cursor:pointer;">🛑 Zatrzymaj</button>
 </div>
 
-<script id="ogame-scan-script">
+<script>
 (function(){
-  if (window.ogameScanInitialized) return;
-  window.ogameScanInitialized = true;
-
   const input = document.getElementById("ogame-scan-input");
   const startBtn = document.getElementById("ogame-scan-start");
   const stopBtn = document.getElementById("ogame-scan-stop");
@@ -104,18 +101,4 @@
 
   startBtn.onclick = () => scanPlayer(input.value.trim() || localStorage.getItem("ogameScanLastTarget"));
 })();
-</script>
-
-<script>
-// Auto-reinjector przy zmianie zakładek
-const observer = new MutationObserver(() => {
-  if (!document.getElementById("ogame-scan-panel")) {
-    document.body.insertAdjacentHTML("beforeend", document.getElementById("ogame-scan-script").outerHTML + document.getElementById("ogame-scan-panel").outerHTML);
-    const script = document.getElementById("ogame-scan-script");
-    const newScript = document.createElement("script");
-    newScript.textContent = script.textContent;
-    script.replaceWith(newScript);
-  }
-});
-observer.observe(document.body, { childList: true, subtree: true });
 </script>
