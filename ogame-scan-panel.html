@@ -1,47 +1,38 @@
-<!-- Panel skanera gracza OGame - trwały i prosty do użycia z bookmarkleta -->
-<div id="ogame-scan-panel" style="position:fixed;top:100px;right:20px;width:300px;background:#111;color:#eee;padding:10px;border:2px solid #555;border-radius:10px;z-index:99999;font-family:sans-serif;font-size:14px;box-shadow:0 0 10px #000;">
-  <div style="font-weight:bold;margin-bottom:5px;">🔎 OGame Skaner Gracza</div>
-  <div>Gracz: <input id="ogame-scan-input" type="text" placeholder="Wpisz gracza" style="width:100%;margin-top:5px;margin-bottom:5px;background:#fff;color:#000;border:none;padding:5px;border-radius:5px;"></div>
-  <div>Postęp: <span id="ogame-scan-progress">0%</span></div>
-  <div>Znaleziono: <span id="ogame-scan-found">0</span></div>
-  <div id="ogame-scan-results" style="max-height:150px;overflow:auto;margin-top:5px;font-family:monospace;background:#222;padding:5px;border-radius:5px;"></div>
-  <button id="ogame-scan-start" onclick="window.ogameScanStart()" style="margin-top:10px;width:100%;background:#0a0;color:#fff;border:none;padding:5px;border-radius:5px;cursor:pointer;">▶️ Skanuj</button>
-  <button id="ogame-scan-stop" onclick="window.ogameScanStop()" style="margin-top:5px;width:100%;background:#c00;color:#fff;border:none;padding:5px;border-radius:5px;cursor:pointer;">🛑 Zatrzymaj</button>
-</div>
-
 <script>
-const input = document.getElementById("ogame-scan-input");
-const resultsBox = document.getElementById("ogame-scan-results");
-const foundCounter = document.getElementById("ogame-scan-found");
-const progressBar = document.getElementById("ogame-scan-progress");
+(async function(){
+  if (document.getElementById("ogame-scan-panel")) return;
+  const targetPlayer = prompt("Podaj nazwę gracza do wyszukania:")?.trim();
+  if (!targetPlayer) return;
+  const base = "https://s263-pl.ogame.gameforge.com";
 
-input.value = localStorage.getItem("ogameScanLastTarget") || "";
-let stopped = false;
+  const panel = document.createElement("div");
+  panel.id = "ogame-scan-panel";
+  panel.style = "position:fixed;top:100px;right:20px;width:300px;background:#111;color:#eee;padding:10px;border:2px solid #555;border-radius:10px;z-index:99999;font-family:sans-serif;font-size:14px;box-shadow:0 0 10px #000;";
+  panel.innerHTML = `
+    <div style="font-weight:bold;margin-bottom:5px;">🔎 OGame Skaner Gracza</div>
+    <div>Gracz: <span>${targetPlayer}</span></div>
+    <div>Postęp: <span id="ogame-scan-progress">0%</span></div>
+    <div>Znaleziono: <span id="ogame-scan-found">0</span></div>
+    <div id="ogame-scan-results" style="max-height:150px;overflow:auto;margin-top:5px;font-family:monospace;background:#222;padding:5px;border-radius:5px;"></div>
+  `;
+  document.body.appendChild(panel);
 
-window.ogameScanStop = function () {
-  stopped = true;
-  document.getElementById("ogame-scan-panel").style.opacity = 0.5;
-};
+  const resultsBox = document.getElementById("ogame-scan-results");
+  const foundCounter = document.getElementById("ogame-scan-found");
+  const progressBar = document.getElementById("ogame-scan-progress");
+  let stopped = false;
 
-window.ogameScanStart = async function () {
-  const targetPlayer = input.value.trim() || localStorage.getItem("ogameScanLastTarget");
-  if (!targetPlayer) return alert("Wpisz nazwę gracza.");
-  localStorage.setItem("ogameScanLastTarget", targetPlayer);
-  resultsBox.innerHTML = "";
-  foundCounter.textContent = "0";
-  progressBar.textContent = "0%";
-  stopped = false;
+  const observer = new MutationObserver(() => {
+    if (!document.getElementById("ogame-scan-panel")) {
+      document.body.appendChild(panel);
+    }
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
 
   function sleep(min, max) {
     return new Promise(r => setTimeout(r, Math.floor(Math.random() * (max - min + 1)) + min));
   }
 
-  function getServerBaseURL() {
-    return "https://s263-pl.ogame.gameforge.com";
-  }
-
-  let found = 0;
-  const base = getServerBaseURL();
   let galaxies = 9;
   try {
     const res = await fetch(`${base}/api/serverData.xml`);
@@ -52,6 +43,7 @@ window.ogameScanStart = async function () {
 
   const total = galaxies * 499;
   let scanned = 0;
+  let found = 0;
 
   for (let g = 1; g <= galaxies; g++) {
     for (let s = 1; s <= 499; s++) {
@@ -66,7 +58,6 @@ window.ogameScanStart = async function () {
           credentials: "include",
           body: `galaxy=${g}&system=${s}`
         });
-
         const data = await res.json();
         for (const slot of data.system.galaxyContent) {
           if (slot.player && slot.player.playerName === targetPlayer) {
@@ -80,7 +71,6 @@ window.ogameScanStart = async function () {
           }
         }
       } catch {}
-
       scanned++;
       const percent = ((scanned / total) * 100).toFixed(1);
       progressBar.textContent = `${percent}%`;
@@ -91,9 +81,9 @@ window.ogameScanStart = async function () {
   if (found > 0) {
     const text = Array.from(resultsBox.children).map(e => e.textContent).join("\n");
     try { await navigator.clipboard.writeText(text); } catch {}
-    alert("Znaleziono " + found + " pozycji. Skopiowano do schowka.");
+    alert(`Znaleziono ${found} pozycji. Skopiowano do schowka.`);
   } else {
     alert("Nie znaleziono gracza.");
   }
-}
+})();
 </script>
