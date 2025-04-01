@@ -1,7 +1,6 @@
 <script>
 (function(){
-  if (window.ogameScanRunning) return;
-  window.ogameScanRunning = true;
+  const base = "https://s263-pl.ogame.gameforge.com";
 
   let targetPlayer = localStorage.getItem("ogameScanTarget");
   if (!targetPlayer) {
@@ -10,88 +9,83 @@
     localStorage.setItem("ogameScanTarget", targetPlayer);
   }
 
-  const base = "https://s263-pl.ogame.gameforge.com";
-  const panel = document.createElement("div");
-  panel.id = "ogame-scan-panel";
-  panel.style = "position:fixed;top:100px;right:20px;width:300px;background:#111;color:#eee;padding:10px;border:2px solid #555;border-radius:10px;z-index:99999;font-family:sans-serif;font-size:14px;box-shadow:0 0 10px #000;";
-  panel.innerHTML = `
-    <div style="font-weight:bold;margin-bottom:5px;">🔎 OGame Skaner Gracza</div>
-    <div>Gracz: <span>${targetPlayer}</span></div>
-    <div>Postęp: <span id="ogame-scan-progress">0%</span></div>
-    <div>Znaleziono: <span id="ogame-scan-found">0</span></div>
-    <div id="ogame-scan-results" style="max-height:150px;overflow:auto;margin-top:5px;font-family:monospace;background:#222;padding:5px;border-radius:5px;"></div>
-  `;
-  document.body.appendChild(panel);
+  const panelId = "ogame-scan-panel";
+  const existing = document.getElementById(panelId);
+  if (!existing) {
+    const panel = document.createElement("div");
+    panel.id = panelId;
+    panel.style = "position:fixed;top:100px;right:20px;width:300px;background:#111;color:#eee;padding:10px;border:2px solid #555;border-radius:10px;z-index:99999;font-family:sans-serif;font-size:14px;box-shadow:0 0 10px #000;";
+    panel.innerHTML = `
+      <div style="font-weight:bold;margin-bottom:5px;">🔎 OGame Skaner Gracza</div>
+      <div>Gracz: <span>${targetPlayer}</span></div>
+      <div>Postęp: <span id="ogame-scan-progress">0%</span></div>
+      <div>Znaleziono: <span id="ogame-scan-found">0</span></div>
+      <div id="ogame-scan-results" style="max-height:150px;overflow:auto;margin-top:5px;font-family:monospace;background:#222;padding:5px;border-radius:5px;"></div>
+    `;
+    document.body.appendChild(panel);
+  }
 
   const resultsBox = document.getElementById("ogame-scan-results");
   const foundCounter = document.getElementById("ogame-scan-found");
   const progressBar = document.getElementById("ogame-scan-progress");
 
-  let galaxies = 9;
-  fetch(`${base}/api/serverData.xml`).then(res => res.text()).then(xml => {
-    const doc = new DOMParser().parseFromString(xml, "text/xml");
-    galaxies = parseInt(doc.querySelector("galaxies").textContent);
-  }).finally(() => {
-    window.ogameScanLoop(targetPlayer, base, galaxies, resultsBox, foundCounter, progressBar);
-  });
+  if (!window.ogameScanLoop) {
+    window.ogameScanLoop = async function(targetPlayer, base, galaxies, resultsBox, foundCounter, progressBar) {
+      if (window.ogameScanActive) return;
+      window.ogameScanActive = true;
+      const total = galaxies * 499;
+      let scanned = 0;
+      let found = 0;
 
-  const observer = new MutationObserver(() => {
-    if (!document.getElementById("ogame-scan-panel")) {
-      document.body.appendChild(panel);
-    }
-    if (!window.ogameScanActive) {
-      window.ogameScanLoop(targetPlayer, base, galaxies, resultsBox, foundCounter, progressBar);
-    }
-  });
-  observer.observe(document.body, { childList: true, subtree: true });
-
-  window.ogameScanLoop = async function(targetPlayer, base, galaxies, resultsBox, foundCounter, progressBar) {
-    if (window.ogameScanActive) return;
-    window.ogameScanActive = true;
-    const total = galaxies * 499;
-    let scanned = 0;
-    let found = 0;
-
-    for (let g = 1; g <= galaxies; g++) {
-      for (let s = 1; s <= 499; s++) {
-        try {
-          const res = await fetch(`${base}/game/index.php?page=ingame&component=galaxy&action=fetchGalaxyContent&ajax=1&asJson=1`, {
-            method: "POST",
-            headers: {
-              "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
-              "x-requested-with": "XMLHttpRequest"
-            },
-            credentials: "include",
-            body: `galaxy=${g}&system=${s}`
-          });
-          const data = await res.json();
-          for (const slot of data.system.galaxyContent) {
-            if (slot.player && slot.player.playerName === targetPlayer) {
-              const coord = `${g}:${s}:${slot.position}`;
-              found++;
-              foundCounter.textContent = found;
-              const div = document.createElement("div");
-              div.textContent = coord;
-              resultsBox.appendChild(div);
-              console.log("✅", coord);
+      for (let g = 1; g <= galaxies; g++) {
+        for (let s = 1; s <= 499; s++) {
+          try {
+            const res = await fetch(`${base}/game/index.php?page=ingame&component=galaxy&action=fetchGalaxyContent&ajax=1&asJson=1`, {
+              method: "POST",
+              headers: {
+                "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+                "x-requested-with": "XMLHttpRequest"
+              },
+              credentials: "include",
+              body: `galaxy=${g}&system=${s}`
+            });
+            const data = await res.json();
+            for (const slot of data.system.galaxyContent) {
+              if (slot.player && slot.player.playerName === targetPlayer) {
+                const coord = `${g}:${s}:${slot.position}`;
+                found++;
+                foundCounter.textContent = found;
+                const div = document.createElement("div");
+                div.textContent = coord;
+                resultsBox.appendChild(div);
+                console.log("✅", coord);
+              }
             }
-          }
-        } catch {}
-        scanned++;
-        const percent = ((scanned / total) * 100).toFixed(1);
-        progressBar.textContent = `${percent}%`;
-        await new Promise(r => setTimeout(r, Math.floor(Math.random() * 50) + 50));
+          } catch {}
+          scanned++;
+          const percent = ((scanned / total) * 100).toFixed(1);
+          progressBar.textContent = `${percent}%`;
+          await new Promise(r => setTimeout(r, Math.floor(Math.random() * 50) + 50));
+        }
       }
-    }
 
-    if (found > 0) {
-      const text = Array.from(resultsBox.children).map(e => e.textContent).join("\n");
-      try { await navigator.clipboard.writeText(text); } catch {}
-      alert(`Znaleziono ${found} pozycji. Skopiowano do schowka.`);
-    } else {
-      alert("Nie znaleziono gracza.");
+      if (found > 0) {
+        const text = Array.from(resultsBox.children).map(e => e.textContent).join("\n");
+        try { await navigator.clipboard.writeText(text); } catch {}
+        alert(`Znaleziono ${found} pozycji. Skopiowano do schowka.`);
+      } else {
+        alert("Nie znaleziono gracza.");
+      }
+      window.ogameScanActive = false;
     }
-    window.ogameScanActive = false;
+  }
+
+  if (!window.ogameScanActive) {
+    fetch(`${base}/api/serverData.xml`).then(res => res.text()).then(xml => {
+      const doc = new DOMParser().parseFromString(xml, "text/xml");
+      const galaxies = parseInt(doc.querySelector("galaxies").textContent);
+      window.ogameScanLoop(targetPlayer, base, galaxies, resultsBox, foundCounter, progressBar);
+    });
   }
 })();
 </script>
