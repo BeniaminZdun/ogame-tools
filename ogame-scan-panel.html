@@ -5,106 +5,97 @@
   <div>Postęp: <span id="ogame-scan-progress">0%</span></div>
   <div>Znaleziono: <span id="ogame-scan-found">0</span></div>
   <div id="ogame-scan-results" style="max-height:150px;overflow:auto;margin-top:5px;font-family:monospace;background:#222;padding:5px;border-radius:5px;"></div>
-  <button id="ogame-scan-start" style="margin-top:10px;width:100%;background:#0a0;color:#fff;border:none;padding:5px;border-radius:5px;cursor:pointer;">▶️ Skanuj</button>
-  <button id="ogame-scan-stop" style="margin-top:5px;width:100%;background:#c00;color:#fff;border:none;padding:5px;border-radius:5px;cursor:pointer;">🛑 Zatrzymaj</button>
+  <button id="ogame-scan-start" onclick="window.ogameScanStart()" style="margin-top:10px;width:100%;background:#0a0;color:#fff;border:none;padding:5px;border-radius:5px;cursor:pointer;">▶️ Skanuj</button>
+  <button id="ogame-scan-stop" onclick="window.ogameScanStop()" style="margin-top:5px;width:100%;background:#c00;color:#fff;border:none;padding:5px;border-radius:5px;cursor:pointer;">🛑 Zatrzymaj</button>
 </div>
 
 <script>
 (function(){
-  const script = document.createElement("script");
-  script.textContent = `
-    (function(){
-      const input = document.getElementById("ogame-scan-input");
-      const startBtn = document.getElementById("ogame-scan-start");
-      const stopBtn = document.getElementById("ogame-scan-stop");
-      const resultsBox = document.getElementById("ogame-scan-results");
-      const foundCounter = document.getElementById("ogame-scan-found");
-      const progressBar = document.getElementById("ogame-scan-progress");
+  const input = document.getElementById("ogame-scan-input");
+  const resultsBox = document.getElementById("ogame-scan-results");
+  const foundCounter = document.getElementById("ogame-scan-found");
+  const progressBar = document.getElementById("ogame-scan-progress");
 
-      input.value = localStorage.getItem("ogameScanLastTarget") || "";
-      let stopped = false;
+  input.value = localStorage.getItem("ogameScanLastTarget") || "";
+  let stopped = false;
 
-      stopBtn.onclick = () => {
-        stopped = true;
-        document.getElementById("ogame-scan-panel").style.opacity = 0.5;
-      };
+  window.ogameScanStop = function () {
+    stopped = true;
+    document.getElementById("ogame-scan-panel").style.opacity = 0.5;
+  };
 
-      function sleep(min, max) {
-        return new Promise(r => setTimeout(r, Math.floor(Math.random() * (max - min + 1)) + min));
-      }
+  window.ogameScanStart = async function () {
+    const targetPlayer = input.value.trim() || localStorage.getItem("ogameScanLastTarget");
+    if (!targetPlayer) return alert("Wpisz nazwę gracza.");
+    localStorage.setItem("ogameScanLastTarget", targetPlayer);
+    resultsBox.innerHTML = "";
+    foundCounter.textContent = "0";
+    progressBar.textContent = "0%";
+    stopped = false;
 
-      function getServerBaseURL() {
-        return "https://s263-pl.ogame.gameforge.com";
-      }
+    function sleep(min, max) {
+      return new Promise(r => setTimeout(r, Math.floor(Math.random() * (max - min + 1)) + min));
+    }
 
-      async function scanPlayer(targetPlayer) {
-        if (!targetPlayer) return alert("Wpisz nazwę gracza.");
-        localStorage.setItem("ogameScanLastTarget", targetPlayer);
-        resultsBox.innerHTML = "";
-        foundCounter.textContent = "0";
-        progressBar.textContent = "0%";
-        stopped = false;
+    function getServerBaseURL() {
+      return "https://s263-pl.ogame.gameforge.com";
+    }
 
-        let found = 0;
-        const base = getServerBaseURL();
-        let galaxies = 9;
+    let found = 0;
+    const base = getServerBaseURL();
+    let galaxies = 9;
+    try {
+      const res = await fetch(`${base}/api/serverData.xml`);
+      const xml = await res.text();
+      const doc = new DOMParser().parseFromString(xml, "text/xml");
+      galaxies = parseInt(doc.querySelector("galaxies").textContent);
+    } catch {}
+
+    const total = galaxies * 499;
+    let scanned = 0;
+
+    for (let g = 1; g <= galaxies; g++) {
+      for (let s = 1; s <= 499; s++) {
+        if (stopped) return;
         try {
-          const res = await fetch(\`\${base}/api/serverData.xml\`);
-          const xml = await res.text();
-          const doc = new DOMParser().parseFromString(xml, "text/xml");
-          galaxies = parseInt(doc.querySelector("galaxies").textContent);
+          const res = await fetch(`${base}/game/index.php?page=ingame&component=galaxy&action=fetchGalaxyContent&ajax=1&asJson=1`, {
+            method: "POST",
+            headers: {
+              "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+              "x-requested-with": "XMLHttpRequest"
+            },
+            credentials: "include",
+            body: `galaxy=${g}&system=${s}`
+          });
+
+          const data = await res.json();
+          for (const slot of data.system.galaxyContent) {
+            if (slot.player && slot.player.playerName === targetPlayer) {
+              const coord = `${g}:${s}:${slot.position}`;
+              found++;
+              foundCounter.textContent = found;
+              const div = document.createElement("div");
+              div.textContent = coord;
+              resultsBox.appendChild(div);
+              console.log("✅", coord);
+            }
+          }
         } catch {}
 
-        const total = galaxies * 499;
-        let scanned = 0;
-
-        for (let g = 1; g <= galaxies; g++) {
-          for (let s = 1; s <= 499; s++) {
-            if (stopped) return;
-            try {
-              const res = await fetch(\`\${base}/game/index.php?page=ingame&component=galaxy&action=fetchGalaxyContent&ajax=1&asJson=1\`, {
-                method: "POST",
-                headers: {
-                  "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
-                  "x-requested-with": "XMLHttpRequest"
-                },
-                credentials: "include",
-                body: \`galaxy=\${g}&system=\${s}\`
-              });
-
-              const data = await res.json();
-              for (const slot of data.system.galaxyContent) {
-                if (slot.player && slot.player.playerName === targetPlayer) {
-                  const coord = \`\${g}:\${s}:\${slot.position}\`;
-                  found++;
-                  foundCounter.textContent = found;
-                  const div = document.createElement("div");
-                  div.textContent = coord;
-                  resultsBox.appendChild(div);
-                  console.log("✅", coord);
-                }
-              }
-            } catch {}
-
-            scanned++;
-            const percent = ((scanned / total) * 100).toFixed(1);
-            progressBar.textContent = \`\${percent}%\`;
-            await sleep(50, 100);
-          }
-        }
-
-        if (found > 0) {
-          const text = Array.from(resultsBox.children).map(e => e.textContent).join("\\n");
-          try { await navigator.clipboard.writeText(text); } catch {}
-          alert("Znaleziono " + found + " pozycji. Skopiowano do schowka.");
-        } else {
-          alert("Nie znaleziono gracza.");
-        }
+        scanned++;
+        const percent = ((scanned / total) * 100).toFixed(1);
+        progressBar.textContent = `${percent}%`;
+        await sleep(50, 100);
       }
+    }
 
-      startBtn.onclick = () => scanPlayer(input.value.trim() || localStorage.getItem("ogameScanLastTarget"));
-    })();
-  `;
-  document.body.appendChild(script);
+    if (found > 0) {
+      const text = Array.from(resultsBox.children).map(e => e.textContent).join("\n");
+      try { await navigator.clipboard.writeText(text); } catch {}
+      alert("Znaleziono " + found + " pozycji. Skopiowano do schowka.");
+    } else {
+      alert("Nie znaleziono gracza.");
+    }
+  }
 })();
 </script>
