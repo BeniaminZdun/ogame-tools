@@ -21,8 +21,12 @@
       <div>Postęp: <span id="ogame-scan-progress">0%</span></div>
       <div>Znaleziono: <span id="ogame-scan-found">0</span></div>
       <div id="ogame-scan-results" style="max-height:150px;overflow:auto;margin-top:5px;font-family:monospace;background:#222;padding:5px;border-radius:5px;"></div>
+      <button id="ogame-scan-stop" style="margin-top:10px;width:100%;background:#c00;color:#fff;border:none;padding:5px;border-radius:5px;cursor:pointer;">🛑 Zatrzymaj</button>
     `;
     document.body.appendChild(panel);
+    document.getElementById("ogame-scan-stop").onclick = () => {
+      localStorage.setItem("ogameScanStopFlag", "true");
+    };
   }
 
   if (!document.getElementById(panelId)) {
@@ -33,16 +37,28 @@
   const foundCounter = () => document.getElementById("ogame-scan-found");
   const progressBar = () => document.getElementById("ogame-scan-progress");
 
+  window.ogameScanResumeState = JSON.parse(localStorage.getItem("ogameScanState") || "null") || {
+    galaxy: 1,
+    system: 1,
+    found: 0,
+    scanned: 0
+  };
+
   window.ogameScanLoop = async function(targetPlayer, base, galaxies) {
     if (window.ogameScanActive) return;
     window.ogameScanActive = true;
+    localStorage.removeItem("ogameScanStopFlag");
 
     const total = galaxies * 499;
-    let scanned = 0;
-    let found = 0;
+    let { galaxy: startG, system: startS, found, scanned } = window.ogameScanResumeState;
 
-    for (let g = 1; g <= galaxies; g++) {
-      for (let s = 1; s <= 499; s++) {
+    for (let g = startG; g <= galaxies; g++) {
+      for (let s = (g === startG ? startS : 1); s <= 499; s++) {
+        if (localStorage.getItem("ogameScanStopFlag") === "true") {
+          console.log("⛔️ Skanowanie zatrzymane.");
+          window.ogameScanActive = false;
+          return;
+        }
         try {
           const res = await fetch(`${base}/game/index.php?page=ingame&component=galaxy&action=fetchGalaxyContent&ajax=1&asJson=1`, {
             method: "POST",
@@ -69,6 +85,7 @@
         scanned++;
         const percent = ((scanned / total) * 100).toFixed(1);
         progressBar().textContent = `${percent}%`;
+        localStorage.setItem("ogameScanState", JSON.stringify({ galaxy: g, system: s + 1, found, scanned }));
         await new Promise(r => setTimeout(r, Math.floor(Math.random() * 50) + 50));
       }
     }
@@ -80,8 +97,9 @@
     } else {
       alert("Nie znaleziono gracza.");
     }
+    localStorage.removeItem("ogameScanState");
     window.ogameScanActive = false;
-  }
+  };
 
   fetch(`${base}/api/serverData.xml`)
     .then(res => res.text())
@@ -90,6 +108,5 @@
       const galaxies = parseInt(doc.querySelector("galaxies").textContent);
       window.ogameScanLoop(targetPlayer, base, galaxies);
     });
-
 })();
 </script>
